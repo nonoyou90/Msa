@@ -1,8 +1,14 @@
 {
   "name": "movorastar-api",
   "version": "1.0.0",
-  "description": "خادم السيرفر المجاني لمنصة موفورا ستار",
+  "description": "خادم السيرفر المجاني المفتوح لمنصة موفورا ستار",
   "main": "server.js",
   "scripts": {
     "start": "node server.js"
   },
+  "dependencies": {
+    "express": "^4.18.2",
+    "axios": "^1.6.2",
+    "cors": "^2.8.5"
+  }
+}
