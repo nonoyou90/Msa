@@ -1,21 +1,25 @@
 // server.js
+// 1. استدعاء المكتبات البرمجية الأساسية لإدارة الشبكة والاتصالات
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const { GoogleGenAI } = require('@google/generative-ai'); 
 
 const app = express();
+
+// تفعيل برمجية CORS لضمان استقبال الطلبات من موقعك في بلوجر بأمان وبشكل مجاني
 app.use(cors());
-app.use(express.json());
+app.use(express.json()); 
 
+// 2. جلب المفاتيح السرية المخزنة بأمان في بيئة Vercel
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
-const GEMINI_API_KEY = process.env.GEMINI_API_KEY; 
+// ستقوم بإنشاء مفتاح مجاني من Hugging Face ووضعه في Vercel باسم HUGGINGFACE_API_KEY
+const HF_API_KEY = process.env.HUGGINGFACE_API_KEY; 
 
-const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
-
+// المسار البرمجي المجاني بالكامل لتوليد مقالات السيو الاحترافية
 app.post('/api/generate-article', async (req, res) => {
     const { query, isTv } = req.body;
     
+    // التحقق البرمجي لمنع إرسال طلبات فارغة
     if (!query) {
         return res.status(400).json({ error: "تنبيه: حقل البحث فارغ، يرجى إدخال اسم العمل." });
     }
@@ -24,6 +28,7 @@ app.post('/api/generate-article', async (req, res) => {
         let movieId = query;
         let mediaType = isTv ? 'tv' : 'movie';
 
+        // أ. الاستعلام من قاعدة بيانات TMDB المجانية لجلب معرف العمل الفني (ID)
         if (isNaN(query)) {
             const searchRes = await axios.get(`https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ar`);
             if (searchRes.data.results && searchRes.data.results.length > 0) {
@@ -33,6 +38,7 @@ app.post('/api/generate-article', async (req, res) => {
             }
         }
 
+        // ب. جلب البيانات الفنية والتفصيلية وطاقم العمل بالكامل
         const detailsRes = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${movieId}?api_key=${TMDB_API_KEY}&append_to_response=credits&language=ar`);
         const data = detailsRes.data;
 
@@ -48,40 +54,48 @@ app.post('/api/generate-article', async (req, res) => {
         }
         let actors = data.credits?.cast?.slice(0, 5).map(a => a.name).join(' ، ') || "";
 
-        const model = ai.getGenerativeModel({ 
-            model: "gemini-1.5-flash", 
-            generationConfig: {
-                temperature: 0.85, 
-                topP: 0.95
-            }
-        });
-
-        // تعديل الـ Prompt لمنع ذكر الاسم نهائياً
-        const prompt = `
-        أنت ناقد سينمائي بشري محترف ومبدع تعمل ككاتب سيو رئيسي في منصة MovoraStar.
-        اكتب مقالاً نقدياً مطولاً باللغة العربية عن ${isTv ? 'مسلسل' : 'فيلم'} "${title}" الصادر عام ${releaseYear}.
-        
-        شروط صارمة: 
-        - لا تذكر اسمك كـ "Gemini" أو "جيميني" أو "نموذج ذكاء اصطناعي" مطلقاً في أي مكان في النص.
-        - اكتب بأسلوب بشري سينمائي خالص كأنك كاتب في مجلة سينمائية شهيرة.
-        
-        المعطيات الفنية:
+        // ج. صياغة الموجه البرمجي الصارم والكامل الموجه للمحرك المجاني المفتوح
+        const promptInstruction = `<|begin_of_text|><|start_header_id|>system<|end_header_id|>
+        أنت ناقد سينمائي بشري محترف ومبدع تعمل ككاتب سيو رئيسي في منصة MovoraStar. 
+        اكتب مقالاً نقدياً مطولاً باللغة العربية عن العمل السينمائي مباشرة وبشكل بشري نقي، دون ذكر أي مقدمات آلية أو أسماء شركات ذكاء اصطناعي.
+        أنتج المحتوى مباشرة مقسماً بوسوم HTML قياسية (h2, p, blockquote, ul, li) دون كتابة وسوم html أو body الخارجية.<|eot_id|><|start_header_id|>user<|end_header_id|>
+        اكتب المقال الفني لـ ${isTv ? 'مسلسل' : 'فيلم'} "${title}" الصادر عام ${releaseYear}.
+        المعطيات:
         - القصة: ${overview}
         - المخرج: ${director}
         - الممثلين: ${actors}
         
-        صغ المقال مباشرة بوسوم HTML نقية (h2, p, blockquote, ul, li) تشمل: مقدمة، تحليل عميق للقصة والنهاية الفلسفية، مراجعة نقدية لنقاط القوة والضعف، وقسم كلمات مفتاحية مدمجة مثل (مشاهدة فيلم ${title} مترجم، قصة مسلسل ${title}، مراجعة ونهاية ${title}).
-        `;
+        الأسلوب المطلوب: مقدمة سينمائية مشوقة، تحليل عميق للقصة وتفكيك العقدة الدرامية وشرح تفصيلي وموسع للنهاية، مراجعة نقدية توضح عناصر القوة والضعف، وقسم كلمات مفتاحية مدمجة مثل (مشاهدة فيلم ${title} مترجم، قصة مسلسل ${title}، مراجعة ونهاية ${title}).<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n`;
 
-        const aiResponse = await model.generateContent(prompt);
-        let generatedText = aiResponse.response.text();
+        // د. الاتصال بالسيرفر المجاني المفتوح (Llama 3) عبر Hugging Face API
+        const hfResponse = await axios.post(
+            'https://api-inference.huggingface.co/models/meta-llama/Meta-Llama-3-8B-Instruct',
+            {
+                inputs: promptInstruction,
+                parameters: {
+                    max_new_tokens: 2048,
+                    temperature: 0.7,
+                    top_p: 0.9,
+                    return_full_text: false
+                }
+            },
+            {
+                headers: {
+                    'Authorization': `Bearer ${HF_API_KEY}`,
+                    'Content-Type': 'application/json'
+                }
+            }
+        );
 
-        // فحص وتطهير النص برمجياً لحذف أي ظهور للكلمة في حال خالفت الإرشادات
-        generatedText = generatedText
-            .replace(/gemini/gi, '') // حذف الكلمة بالإنجليزية بجميع حالات الأحرف
-            .replace(/جيميني/g, '')  // حذف الكلمة بالعربية
-            .replace(/جيمينى/g, ''); // حذف الكلمة بالياء المهملة
+        // استخراج النص المولد من مصفوفة الاستجابة الخاصة بـ Hugging Face
+        let generatedText = "";
+        if (Array.isArray(hfResponse.data) && hfResponse.data[0]) {
+            generatedText = hfResponse.data[0].generated_text || hfResponse.data[0].text;
+        } else if (hfResponse.data.generated_text) {
+            generatedText = hfResponse.data.generated_text;
+        }
 
+        // هـ. بناء البيانات المنظمة (JSON-LD Schema) لربط السيو بجوجل بشكل احترافي ومجاني
         const jsonLdSchemas = `
 <script type="application/ld+json">
 {
@@ -114,6 +128,7 @@ app.post('/api/generate-article', async (req, res) => {
 
         const finalHTML = `${jsonLdSchemas}\n<div class="movorastar-post-body">\n${generatedText}\n</div>`;
 
+        // إرجاع النتيجة النهائية لواجهة موقعك
         res.json({
             title: title,
             searchDescription: `تحليل ومراجعة ${isTv ? 'مسلسل' : 'فيلم'} ${title} (${releaseYear}). قصة العمل، قراءة فنية للنهاية والأبطال عبر MovoraStar.`,
@@ -121,10 +136,10 @@ app.post('/api/generate-article', async (req, res) => {
         });
 
     } catch (err) {
-        console.error("خطأ فني:", err.message);
-        res.status(500).json({ error: "واجه المحرك ضغطاً، يرجى المحاولة مرة أخرى." });
+        console.error("خطأ فني في السيرفر المجاني:", err.message);
+        res.status(500).json({ error: "واجه المحرك المجاني البديل ضغطاً، يرجى المحاولة مرة أخرى." });
     }
 });
 
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Clean Free Server Running`));
+app.listen(PORT, () => console.log(`Pure Free Llama Server Running`));
