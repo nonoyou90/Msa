@@ -1,39 +1,47 @@
 // server.js
+// 1. استدعاء المكتبات البرمجية الأساسية لإدارة الشبكة والاتصالات
 const express = require('express');
 const axios = require('axios');
 const cors = require('cors');
-const { GoogleGenAI } = require('@google/generative-ai'); // استدعاء مكتبة الذكاء الاصطناعي
+const { GoogleGenAI } = require('@google/generative-ai'); 
 
 const app = express();
-app.use(cors());
-app.use(express.json());
 
-// قراءة المفاتيح السرية من بيئة Vercel الآمنة
+// تفعيل برمجية CORS لضمان استقبال الطلبات من موقعك في بلوجر بأمان وبشكل مجاني
+app.use(cors());
+app.use(express.json()); // السماح للسيرفر بقراءة البيانات القادمة بصيغة JSON
+
+// 2. جلب المفاتيح السرية المجانية المخزنة بأمان في بيئة Vercel
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const GEMINI_API_KEY = process.env.GEMINI_API_KEY; 
 
-// تهيئة محرك الذكاء الاصطناعي
+// تهيئة محرك الذكاء الاصطناعي باستخدام مفتاحك المجاني
 const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
 
+// المسار البرمجي المجاني والسريع لتوليد مقالات السيو الاحترافية
 app.post('/api/generate-article', async (req, res) => {
     const { query, isTv } = req.body;
-    if (!query) return res.status(400).json({ error: "الرجاء إدخال اسم العمل أو الـ ID" });
+    
+    // التحقق البرمجي لمنع إرسال طلبات فارغة تستهلك الحصة المجانية دون فائدة
+    if (!query) {
+        return res.status(400).json({ error: "تنبيه: حقل البحث فارغ، يرجى إدخال اسم العمل." });
+    }
 
     try {
         let movieId = query;
         let mediaType = isTv ? 'tv' : 'movie';
 
-        // 1. البحث عن معرف العمل في TMDB
+        // أ. الاستعلام من قاعدة بيانات TMDB المجانية لجلب معرف العمل الفني (ID) إذا تم إدخال اسم نصي
         if (isNaN(query)) {
-            const searchRes = await axios.get(`https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}&query=${encodeURIComponent(query)}&language=ar`);
+            const searchRes = await axios.get(`https://api.themoviedb.org/3/search/${mediaType}?api_key=${TMDB_API_KEY}?&query=${encodeURIComponent(query)}&language=ar`);
             if (searchRes.data.results && searchRes.data.results.length > 0) {
                 movieId = searchRes.data.results[0].id;
             } else {
-                return res.status(404).json({ error: "لم يتم العثور على نتائج" });
+                return res.status(404).json({ error: "لم يتم العثور على هذا العمل في قاعدة بيانات TMDB." });
             }
         }
 
-        // 2. جلب البيانات التفصيلية وطاقم العمل
+        // ب. جلب البيانات الفنية والتفصيلية وطاقم العمل بالكامل
         const detailsRes = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${movieId}?api_key=${TMDB_API_KEY}&append_to_response=credits&language=ar`);
         const data = detailsRes.data;
 
@@ -42,38 +50,49 @@ app.post('/api/generate-article', async (req, res) => {
         const overview = data.overview || "";
         const rating = data.vote_average ? data.vote_average.toFixed(1) : "7.5";
         
-        let director = "غير معروف";
+        // استخراج اسم المخرج أو المنتج التنفيذي برمجياً
+        let director = "صناع السينما المحترفين";
         if (data.credits && data.credits.crew) {
             const dir = data.credits.crew.find(c => c.job === "Director" || c.job === "Executive Producer");
             if (dir) director = dir.name;
         }
+        // جلب أول 5 ممثلين من طاقم العمل
         let actors = data.credits?.cast?.slice(0, 5).map(a => a.name).join(' ، ') || "";
 
-        // 3. استدعاء الذكاء الاصطناعي لتوليد محتوى المقال بعمق وتجنب التكرار
-        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
+        // ج. استدعاء النموذج المجاني والسريع للغاية (gemini-1.5-flash)
+        const model = ai.getGenerativeModel({ 
+            model: "gemini-1.5-flash", 
+            generationConfig: {
+                temperature: 0.8, // رفع معيار الإبداع برمجياً لمنع النصوص الآلية والحصول على صياغة بشرية مشوقة
+                topP: 0.95
+            }
+        });
+
+        // صياغة أمر برمي (Prompt) احترافي ومكثف لجعل النموذج المجاني يكتب كأنه ناقد خبير
         const prompt = `
-        أنت كاتب محترف في موقع MovoraStar المتخصص في نقد الأفلام والمسلسلات وسيو طويل المدى.
-        اكتب مقالاً نقدياً شاملاً وحصرياً باللغة العربية عن ${isTv ? 'مسلسل' : 'فيلم'} اسمه "${title}" صدر عام ${releaseYear}.
+        أنت ناقد سينمائي محترف ومبدع تعمل ككاتب سيو رئيسي في منصة MovoraStar المتقدمة.
+        اكتب مقالاً نقدياً مطولاً، غنياً بالمعلومات والتفاصيل السينمائية باللغة العربية عن ${isTv ? 'مسلسل' : 'فيلم'} "${title}" الصادر عام ${releaseYear}.
         
-        معلومات أساسية للعمل لتعتمد عليها:
-        - القصة التمهيدية: ${overview}
+        المعطيات الفنية المرجعية:
+        - قصة العمل الأساسية: ${overview}
         - المخرج: ${director}
-        - الممثلين: ${actors}
+        - أبرز النجوم المشاركين: ${actors}
         
-        يجب أن يحتوي المقال على الأقسام التالية مقسمة بوسوم HTML قياسية ونظيفة (مثل h2 و p و blockquote) ودون أي inline styles:
-        1. مقدمة جذابة ومغايرة تماماً.
-        2. تحليل عميق وشرح للأحداث والنهاية المتوقعة أو الفعلية للعمل.
-        3. مراجعة نقدية تشمل نقاط القوة ونقاط الضعف الفنية.
-        4. الرسائل والأهداف التي يطرحها العمل للمشاهد.
-        5. فقرة استهداف كلمات مفتاحية مثل (مشاهدة فيلم ${title}، قصة ${title}، مراجعة ${title}، تقييم ${title}).
+        شروط الصياغة البرمجية: أنتج المحتوى مباشرة مقسماً بوسوم HTML قياسية (h2, p, blockquote, ul, li) وبأسلوب أدبي سينمائي ممتع، دون كتابة وسوم html أو body الخارجية:
+        1. مقدمة سينمائية ساحرة ومبتكرة تخطف عين القارئ وتتحدث عن أجواء العمل الفنية.
+        2. تحليل سردي عميق للقصة وتفكيك العقدة الدرامية وشرح تفصيلي وموسع للنهاية وما ترمز إليه.
+        3. مراجعة نقدية متوازنة توضح عناصر القوة البصرية والإخراجية ونقاط الضعف السينمائية.
+        4. الأبعاد الفلسفية أو الرسائل الفكرية والمجتمعية الكامنة وراء السيناريو.
+        5. قسم كلمات مفتاحية مستهدفة مدمجة طبيعياً داخل السياق مثل: (مشاهدة فيلم ${title} مترجم، قصة مسلسل ${title}، مراجعة ونهاية ${title}).
         
-        اجعل الأسلوب بشرياً شيقاً وممتازاً لمحركات البحث. لا تضع وسوم html أو body كاملة، فقط محتوى المقال الداخلي.
+        احرص على أن تكون الجمل انسيابية، خالية من الركاكة الآلية، ومثالية تماماً للتصدر في محركات البحث.
         `;
 
+        // إرسال الأمر للنموذج المجاني واستلام النص
         const aiResponse = await model.generateContent(prompt);
         const generatedText = aiResponse.response.text();
 
-        // 4. توليد أكواد البيانات المنظمة السيو الاحترافية (JSON-LD)
+        // د. بناء البيانات المنظمة (JSON-LD Schema) لربط السيو بجوجل بشكل احترافي مجاني
         const jsonLdSchemas = `
 <script type="application/ld+json">
 {
@@ -104,19 +123,23 @@ app.post('/api/generate-article', async (req, res) => {
 </script>
         `;
 
+        // دمج السكيما مع النص المولد وتغليفه بكلاس التصميم الخاص بـ MovoraStar
         const finalHTML = `${jsonLdSchemas}\n<div class="movorastar-post-body">\n${generatedText}\n</div>`;
 
+        // إرجاع النتيجة النهائية الاحترافية لواجهة بلوجر الخاصة بك
         res.json({
             title: title,
-            searchDescription: `مراجعة ${isTv ? 'مسلسل' : 'فيلم'} ${title} (${releaseYear}) مترجم. قصة العمل بالتفصيل، التحليل الفني والنقدي للنهاية عبر منصة MovoraStar.`,
+            searchDescription: `تحليل ومراجعة ${isTv ? 'مسلسل' : 'فيلم'} ${title} (${releaseYear}). قصة العمل، قراءة فنية للنهاية والأبطال عبر MovoraStar.`,
             html: finalHTML
         });
 
     } catch (err) {
-        console.error(error);
-        res.status(500).json({ error: "فشل المحرك في توليد مقال الذكاء الاصطناعي" });
+        // تسجيل الخطأ برمجياً في لوحة تحكم Vercel ومناولته لمنع توقف السيرفر المجاني
+        console.error("خطأ فني في السيرفر المجاني:", err.message);
+        res.status(500).json({ error: "تنبيه: واجه المحرك المجاني ضغطاً في الطلبات، يرجى المحاولة مرة أخرى بعد ثوانٍ." });
     }
 });
 
+// إعداد منفذ الخادم الافتراضي لبيئة Vercel المجانية
 const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => console.log(`Server running`));
+app.listen(PORT, () => console.log(`Free Server Running Successfully`));
